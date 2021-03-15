@@ -1,7 +1,8 @@
 
 use clap::{App, Arg};
 
-fn main() -> anyhow::Result<()> {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
 	let matches = App::new("preroller")
 							.version("0.1")
 							.author("Andreas N. <andreas@omni-mad.com>")
@@ -52,8 +53,6 @@ fn main() -> anyhow::Result<()> {
 	};
 
 	println!("Prerolling {}, {}, {} at {} fps {}", in_path, loop_path, out_path, fps, if windowed { "[windowed]" } else { "" } );
-
-	println!("PreRoller");
 
 	Ok(())
 }
