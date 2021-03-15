@@ -1,6 +1,8 @@
 
 use clap::{App, Arg};
 
+use preroller::preroller::{ PreRoller, PreRollerBuilder };
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
 	let matches = App::new("preroller")
@@ -53,6 +55,13 @@ async fn main() -> anyhow::Result<()> {
 	};
 
 	println!("Prerolling {}, {}, {} at {} fps {}", in_path, loop_path, out_path, fps, if windowed { "[windowed]" } else { "" } );
+
+	let builder = PreRollerBuilder::new()
+					.set_windowed(windowed);
+
+	let mut preroller = builder.build();
+
+	preroller.run().await?;
 
 	Ok(())
 }
