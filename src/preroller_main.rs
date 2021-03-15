@@ -1,7 +1,7 @@
 
 use clap::{App, Arg};
 
-use preroller::preroller::{ PreRoller, PreRollerBuilder };
+use preroller::preroller::PreRollerBuilder;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
