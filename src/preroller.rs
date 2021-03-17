@@ -1,4 +1,5 @@
 
+use std::sync::mpsc::channel;
 use std::time::{Duration, Instant};
 
 use glium::{glutin, Surface};
@@ -11,10 +12,19 @@ use glutin::window::WindowBuilder;
 
 use image::Rgba;
 use image::GenericImageView;
+use indicatif::{ ProgressBar, ProgressStyle };
 
 
 use crate::fullscreen_quad::FulllscreenQuad;
 use crate::image_cache::ImageCache;
+
+#[derive(Debug)]
+enum Message {
+	StateChanged( String ),
+	LengthChanged( u64 ),
+	PositionChanged( u64 ),
+	Increment,
+}
 
 pub struct PreRollerBuilder {
 	windowed: bool,
@@ -109,7 +119,40 @@ impl PreRoller {
 
 		println!("Waiting for SPACE...");
 
+		let (tx, rx) = channel::< Message >();
+
+		let in_len = images_in.len();
+		tokio::spawn(async move {
+	    	let pb = ProgressBar::new( in_len as u64 );
+			pb.set_style(
+	            ProgressStyle::default_bar()
+	                .template("{msg:12} [{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {eta_precise}")
+	                .progress_chars("█▓▒░  "),
+	        );
+	        loop {
+	        	match rx.try_recv() {
+	        		Err( _ ) => {},
+	        		Ok( Message::Increment ) => {
+	        			pb.inc( 1 );
+	        		},
+	        		Ok( Message::StateChanged( s ) ) => {
+	        			pb.set_message( &s );
+	        		},
+	        		Ok( Message::LengthChanged( l ) ) => {
+	        			pb.set_length( l );
+	        		},
+	        		Ok( Message::PositionChanged( p ) ) => {
+	        			pb.set_position( p );
+	        		},
+//	        		Ok( o ) => todo!( "{:?}", &o ),
+	        	}
+	        };
+		});
+
+
 	    el.run(move |event, _, control_flow| {
+
+
 	        let next_frame_time = std::time::Instant::now() +
 	            std::time::Duration::from_nanos(16_666_667);
 	        *control_flow = glutin::event_loop::ControlFlow::WaitUntil(next_frame_time);
@@ -137,12 +180,15 @@ impl PreRoller {
 										println!("Going in!");
 										state = State::In;
 										current_image = 0;
+										tx.send( Message::StateChanged( "In".to_string() ) ).unwrap();
+								        tx.send( Message::LengthChanged( images_in.len() as u64 ) ).unwrap();
 									},
 									State::In => {
 									},
 									State::Loop => {
 										println!("Finishing loop!");
 										state = State::LoopFinish;
+										tx.send( Message::StateChanged( "LoopFinish".to_string() ) ).unwrap();
 									},
 									State::LoopFinish => {
 									}
@@ -208,7 +254,6 @@ impl PreRoller {
 				        target.finish().unwrap();
 				        drop(texture);
 
-
 				        match &state {
 							State::InWait => {
 								// advance on key
@@ -228,17 +273,23 @@ impl PreRoller {
 							State::OutDone => {
 								*control_flow = ControlFlow::Exit;
 							},
-				        }
+				        };
+
+				        tx.send( Message::PositionChanged( current_image as u64 ) ).unwrap();
 					},
 					None => {
+				        tx.send( Message::PositionChanged( current_image as u64 ) ).unwrap();
 				        match &state {
 							State::InWait => {
 								// advance on key
 							},
 							State::In => {
 								state = State::Loop;
+								dbg!(&current_image);
 								current_image = 0;
 								println!("Looping!");
+								tx.send( Message::StateChanged( "Looping".to_string() ) ).unwrap();
+						        tx.send( Message::LengthChanged( images_loop.len() as u64 ) ).unwrap();
 							},
 							State::Loop => {
 								current_image = 0;
@@ -248,6 +299,8 @@ impl PreRoller {
 								state = State::Out;
 								current_image = 0;
 								println!("Going out!");
+								tx.send( Message::StateChanged( "Out".to_string() ) ).unwrap();
+						        tx.send( Message::LengthChanged( images_out.len() as u64 ) ).unwrap();
 							}
 							State::Out => {
 								state = State::OutDone;
@@ -263,6 +316,7 @@ impl PreRoller {
 //		        println!("Frame done");
 	    	}
 
+//			pb.finish_with_message("100%");
 	    });
 	}
 }
