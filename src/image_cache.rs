@@ -1,4 +1,6 @@
 
+use std::path::PathBuf;
+
 //use image::DynamicImage::ImageRgba8;
 use image::Rgba;
 use glium::texture::RawImage2d;
@@ -28,11 +30,12 @@ impl ImageCache {
 		*maybe_image = Some( image );
 	}
 */
-	fn load_image( &mut self, index: usize, filename: &str ) {
-		use std::io::Cursor;
-		let image = image::load(Cursor::new(&include_bytes!("../data/loop/0120.png")[..]),
-		                        image::ImageFormat::Png).unwrap().to_rgba8();
-		let image_dimensions = image.dimensions();
+	fn load_image( &mut self, index: usize, filename: &PathBuf ) {
+//		use std::io::Cursor;
+//		let image = image::load(Cursor::new(&include_bytes!("../data/loop/0120.png")[..]),
+//		                        image::ImageFormat::Png).unwrap().to_rgba8();
+		let image = image::open(filename).unwrap().to_rgba8();
+//		let image_dimensions = image.dimensions();
 		self.images.push( Some( image::DynamicImage::ImageRgba8( image ) ) );
 //		self.images.push( Some( image ) );
 		/*
@@ -52,7 +55,23 @@ impl ImageCache {
 			Self::load_image( &mut left[ 0 ], "data/loop/0120.png");
 			Self::load_image( &mut right[ 0 ], "data/loop/0120.png");
 		*/
-		self.load_image( 0, "data/loop/0120.png" );
+
+		let dir = std::env::current_dir().unwrap();
+		let g = format!("{}/{}", dir.as_path().to_string_lossy(), path.to_string());
+		dbg!(&g);
+		let mut i = 0;
+		for e in glob::glob( &g ).expect("Failed to read glob pattern") {
+			match e {
+				Ok( p ) => {
+					println!("{}", &p.display() );
+					i += 1;
+					self.load_image( i, &p );//"data/loop/0120.png" );
+				},
+				x => todo!("{:?}", x ),
+			}
+			/*
+			*/
+    	}
 	}
 
 }

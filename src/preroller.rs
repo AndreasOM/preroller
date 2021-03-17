@@ -86,12 +86,20 @@ impl PreRoller {
 //			self.images_loop.load_images( "loop" );
 		}
 
-		let mut images_loop = ImageCache::new();
-		images_loop.load_images( "loop" ).await;
+		let mut images_in = ImageCache::new();
+		images_in.load_images( "data/in/*.png" ).await;
 
-		let mut state = State::Loop;
+		let mut images_loop = ImageCache::new();
+		images_loop.load_images( "data/loop/*.png" ).await;
+
+		let mut images_out = ImageCache::new();
+		images_out.load_images( "data/out/*.png" ).await;
+
+		let mut state = State::InWait;
 		let mut current_image = 0;
 
+
+		println!("Waiting for SPACE...");
 
 	    el.run(move |event, _, control_flow| {
 	        let next_frame_time = std::time::Instant::now() +
@@ -112,6 +120,32 @@ impl PreRoller {
 	                			()
 	                		} ,
 	                		( Some( VirtualKeyCode::Escape ), ElementState::Pressed ) => {
+	                			()
+	                		} ,
+	                		( Some( VirtualKeyCode::Space ), ElementState::Released ) => {
+	                			println!("SPACE released");
+						        match &state {
+									State::InWait => {
+										println!("Going in!");
+										state = State::In;
+										current_image = 0;
+									},
+									State::In => {
+									},
+									State::Loop => {
+										println!("Finishing loop!");
+										state = State::LoopFinish;
+									},
+									State::LoopFinish => {
+									}
+									State::Out => {
+									},
+									State::OutDone => {
+									},
+						        }
+	                			()
+	                		} ,
+	                		( Some( VirtualKeyCode::Space ), ElementState::Pressed ) => {
 	                			()
 	                		} ,
 	                		_ => {
@@ -138,7 +172,20 @@ impl PreRoller {
 				let image = image::load(Cursor::new(&include_bytes!("../data/loop/0120.png")[..]),
 				                        image::ImageFormat::Png).unwrap().to_rgba8();
 				*/
-				match images_loop.get_image( current_image ) /*self.get_image()*/ /*Some( image )*/ {
+//				dbg!(&state, current_image);
+				let image = match state {
+					State::InWait | State::In => {
+						images_in.get_image( current_image )
+					},
+					State::Loop | State::LoopFinish => {
+						images_loop.get_image( current_image )
+					},
+					State::Out | State::OutDone => {
+						images_out.get_image( current_image )
+					},
+					_ => &None,
+				};
+				match image { // images_loop.get_image( current_image ) /*self.get_image()*/ /*Some( image )*/ {
 					Some( image ) => {
 				        let mut target = display.draw();
 				        target.clear_color(0.0, 0.0, 1.0, 1.0);
@@ -152,13 +199,60 @@ impl PreRoller {
 				        fsq.render( &mut target, &texture );
 				        target.finish().unwrap();
 				        drop(texture);
+
+
+				        match &state {
+							State::InWait => {
+								// advance on key
+							},
+							State::In => {
+								current_image += 1;
+							},
+							State::Loop => {
+								current_image += 1;
+							},
+							State::LoopFinish => {
+								current_image += 1;
+							}
+							State::Out => {
+								current_image += 1;
+							},
+							State::OutDone => {
+								*control_flow = ControlFlow::Exit;
+							},
+				        }
 					},
 					None => {
-
+				        match &state {
+							State::InWait => {
+								// advance on key
+							},
+							State::In => {
+								state = State::Loop;
+								current_image = 0;
+								println!("Looping!");
+							},
+							State::Loop => {
+								current_image = 0;
+								println!("Looping again...");
+							},
+							State::LoopFinish => {
+								state = State::Out;
+								current_image = 0;
+								println!("Going out!");
+							}
+							State::Out => {
+								state = State::OutDone;
+								println!("Done!");
+							},
+							State::OutDone => {
+								*control_flow = ControlFlow::Exit;								
+							},
+				        }
 					},
 				}
 
-		        println!("Frame done");
+//		        println!("Frame done");
 	    	}
 
 	    });
