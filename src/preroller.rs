@@ -79,16 +79,21 @@ impl PreRoller {
 	pub async fn run( &mut self ) -> anyhow::Result<()> {
 		println!("PreRoller::run()");
 		let el = EventLoop::new();
+//		let monitor = el.available_monitors().nth(0).expect("Please enter a valid ID");
     	let wb = WindowBuilder::new()
         			.with_title("A transparent window!")
         			.with_decorations(false)
         			.with_transparent(true)
+//        			.with_fullscreen(Some(glutin::window::Fullscreen::Borderless(None)))
+					.with_maximized( true )
+					.with_always_on_top( true )
         			;
 		let cb = glutin::ContextBuilder::new();
 
 		// :TODO: handle actual fullscreen
 
     	let display = glium::Display::new(wb, cb, &el).unwrap();
+//		display.gl_window().window.set_maximized(is_maximized);
 
 		let fsq = FulllscreenQuad::new( &display );
 
@@ -242,7 +247,7 @@ impl PreRoller {
 				match image { // images_loop.get_image( current_image ) /*self.get_image()*/ /*Some( image )*/ {
 					Some( image ) => {
 				        let mut target = display.draw();
-				        target.clear_color(0.0, 0.0, 1.0, 1.0);
+//				        target.clear_color(0.0, 0.0, 1.0, 1.0);
 
 						let image_dimensions = image.dimensions();
 //						let image = glium::texture::RawImage2d::from_raw_rgba_reversed(&image.to_rgba8().into_raw(), image_dimensions);
