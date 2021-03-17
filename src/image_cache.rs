@@ -1,14 +1,12 @@
 
+use std::collections::VecDeque;
 use std::path::PathBuf;
 
 //use image::DynamicImage::ImageRgba8;
-use image::Rgba;
-use glium::texture::RawImage2d;
 
 //#[derive(Debug)]
 pub struct ImageCache {
 	images: Vec< Option< image::DynamicImage> >,
-//	images: Vec< Option< RawImage2d<'a, u8> > >,
 }
 
 impl ImageCache {
@@ -20,58 +18,54 @@ impl ImageCache {
 
 	pub fn get_image( &self, index: usize ) -> &Option< image::DynamicImage > {
 		self.images.get( index ).unwrap_or( &None )
-//		None
 	}
-/*
-	fn load_image( maybe_image: &mut Option< image::ImageBuffer<Rgba<u8>, Vec<u8>> >, filename: &str ) {
-		use std::io::Cursor;
-		let image = image::load(Cursor::new(&include_bytes!("../data/loop/0120.png")[..]),
-		                        image::ImageFormat::Png).unwrap().to_rgba8();
-		*maybe_image = Some( image );
-	}
-*/
-	fn load_image( &mut self, index: usize, filename: &PathBuf ) {
-//		use std::io::Cursor;
-//		let image = image::load(Cursor::new(&include_bytes!("../data/loop/0120.png")[..]),
-//		                        image::ImageFormat::Png).unwrap().to_rgba8();
+
+	async fn load_image( filename: PathBuf ) -> Option< image::DynamicImage > {
+//		println!("Loading {:?}", &filename);
 		let image = image::open(filename).unwrap().to_rgba8();
-//		let image_dimensions = image.dimensions();
-		self.images.push( Some( image::DynamicImage::ImageRgba8( image ) ) );
-//		self.images.push( Some( image ) );
-		/*
-		let maybe_image = self.images.get_mut( index );
-		maybe_image = Some( image );
-		*/
+		Some( image::DynamicImage::ImageRgba8( image ) )		
 	}
-
+	/*
+	async fn load_image( &mut self, index: usize, filename: &PathBuf ) {
+		let image = image::open(filename).unwrap().to_rgba8();
+		self.images.push( Some( image::DynamicImage::ImageRgba8( image ) ) );
+	}
+	*/
 	pub async fn load_images( &mut self, path: &str ) {
-		/*
-					self.images_loop = Vec::with_capacity( 2 );
-			for _ in 0..2 {
-				self.images_loop.push( None );
-			}
-
-			let (left, right) = self.images_loop.split_at_mut(1);
-			Self::load_image( &mut left[ 0 ], "data/loop/0120.png");
-			Self::load_image( &mut right[ 0 ], "data/loop/0120.png");
-		*/
-
 		let dir = std::env::current_dir().unwrap();
 		let g = format!("{}/{}", dir.as_path().to_string_lossy(), path.to_string());
 		dbg!(&g);
-		let mut i = 0;
+
+		let mut pending = VecDeque::new();
+
 		for e in glob::glob( &g ).expect("Failed to read glob pattern") {
 			match e {
 				Ok( p ) => {
-					println!("{}", &p.display() );
-					i += 1;
-					self.load_image( i, &p );//"data/loop/0120.png" );
+					while pending.len() > 2000 {
+						let out: tokio::task::JoinHandle< _ > = pending.pop_front().unwrap();
+					    self.images.push( out.await.unwrap() );
+					};
+//					println!("{}", &p.display() );
+					let out = tokio::spawn(async move {
+						ImageCache::load_image( p ).await
+				    });
+//					dbg!(&out);
+					pending.push_back( out );
+//					pending.push( handle );
+//				    let out = handle.await.unwrap();
+//				    self.images.push( out.await.unwrap() );
 				},
 				x => todo!("{:?}", x ),
 			}
 			/*
 			*/
     	}
+
+		while pending.len() > 0 {
+			let out: tokio::task::JoinHandle< _ > = pending.pop_front().unwrap();
+		    self.images.push( out.await.unwrap() );
+		};
+
 	}
 
 }

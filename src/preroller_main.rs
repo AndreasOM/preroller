@@ -40,6 +40,12 @@ async fn main() -> anyhow::Result<()> {
 								.help("Run windowed (instead of fullscreen).")
 								.takes_value(false)
 							)
+							.arg( Arg::with_name("threads")
+								.long("threads")
+								.value_name("THREADS")
+								.help("Number of threads.")
+								.takes_value(true)
+							)
 							.get_matches();
 
 	let in_path = matches.value_of("in").unwrap_or("in").to_string();
@@ -48,10 +54,17 @@ async fn main() -> anyhow::Result<()> {
 
 	let windowed = matches.occurrences_of("windowed") > 0;
 
+
 	let fps = matches.value_of("fps").unwrap_or("25").to_string();
 	let fps = match fps.parse::<f32>() {
 		Ok( fps ) => fps,
 		Err( _ ) => panic!("Invalid fps {:?}", fps ),
+	};
+
+	let threads = matches.value_of("threads").unwrap_or("1").to_string();
+	let threads = match threads.parse::<usize>() {
+		Ok( threads ) => threads,
+		Err( _ ) => panic!("Invalid threads {:?}", threads ),
 	};
 
 	println!("Prerolling {}, {}, {} at {} fps {}", in_path, loop_path, out_path, fps, if windowed { "[windowed]" } else { "" } );
@@ -61,7 +74,20 @@ async fn main() -> anyhow::Result<()> {
 
 	let mut preroller = builder.build();
 
-	preroller.run().await?;
+	let runtime = tokio::runtime::Builder::new_multi_thread()
+	        .worker_threads(threads)
+	        .thread_name("preroller")
+	        .thread_stack_size(3 * 1024 * 1024)
+	        .build()
+	        .unwrap();
+
+
+	let _guard = runtime.enter();
+
+	match preroller.run().await {
+		Err( e ) => println!("Error: {:?}", e ),
+		Ok( _ ) => {},
+	}
 
 	Ok(())
 }

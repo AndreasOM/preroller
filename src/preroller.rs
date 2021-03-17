@@ -1,4 +1,6 @@
 
+use std::time::{Duration, Instant};
+
 use glium::{glutin, Surface};
 
 use glutin::ContextBuilder;
@@ -9,6 +11,7 @@ use glutin::window::WindowBuilder;
 
 use image::Rgba;
 use image::GenericImageView;
+
 
 use crate::fullscreen_quad::FulllscreenQuad;
 use crate::image_cache::ImageCache;
@@ -86,6 +89,7 @@ impl PreRoller {
 //			self.images_loop.load_images( "loop" );
 		}
 
+		let start = Instant::now();
 		let mut images_in = ImageCache::new();
 		images_in.load_images( "data/in/*.png" ).await;
 
@@ -94,6 +98,10 @@ impl PreRoller {
 
 		let mut images_out = ImageCache::new();
 		images_out.load_images( "data/out/*.png" ).await;
+
+	    let duration = start.elapsed();
+
+	    println!("Loaded in {:?}", duration);
 
 		let mut state = State::InWait;
 		let mut current_image = 0;
